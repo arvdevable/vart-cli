@@ -1,6 +1,6 @@
 # vart (cli)
 
-![img](./vartv4.png)
+![img](./vartv5.png)
 
 **vart** (verify article) is a small command-line tool for creating encrypted identities and signing/verifying text articles inside the vart ecosystem. the project uses a hybrid model:
 
