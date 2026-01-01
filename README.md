@@ -139,16 +139,6 @@ options to fix:
 
 ---
 
-## security notes (read before production)
-
-- do not commit persisted master secret files or private keys to git. add `~/.vart_master_secret`, `.vart/`, and `*.vart` to `.gitignore`.
-- treat `MASTER_SECRET_HEX` and `AUTHORITY_PRIVATE_KEY_PEM` as highly sensitive.
-- if `MASTER_SECRET` is stolen: attacker can decrypt identities and read private fields, but they cannot create valid authority-signed identities (unless authority private key is also stolen).
-- if the authority private key is stolen: attacker can create forged, signed identities. protect it as tightly as the master secret.
-- plan for key rotation. rotate master secret carefully (re-encrypt artifacts or version them), and record versions in `.vart.public` when migrating.
-
----
-
 ## troubleshooting
 
 - "authority signature is null": ensure `AUTHORITY_PRIVATE_KEY_PEM` is present in the same shell and valid, or run `vart init` and re-register/sign the file.
@@ -170,4 +160,4 @@ setup ci to run tests and scan for accidental secrets (git-secrets or similar).
 
 ## license
 
-pick an appropriate open source license and add it to the repo (e.g., mit).
+see LICENSE.md
