@@ -1,0 +1,30 @@
+{
+  "name": "vart-cli",
+  "version": "1.0.0",
+  "description": "vart - cli anti-alteration tool for text-based everything.",
+  "main": "crypto-helper.js",
+  "bin": {
+    "vart": "crypto-helper.js"
+  },
+  "files": [
+    "crypto-helper.js",
+    "hybrid-model.md",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test/run-tests.js",
+    "lint": "eslint . || true"
+  },
+  "keywords": [
+    "vart",
+    "verification",
+    "signing",
+    "cli"
+  ],
+  "author": "",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {}
+}
