@@ -7,7 +7,7 @@
 - private data (identities, private metadata) is encrypted with a master secret.
 - public fingerprints and optional authority signatures are embedded so others can perform public verification without the master secret.
 
-this readme intentionally uses lowercase for branding.
+https://vart.vercel.app/
 
 ---
 
