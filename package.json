@@ -1,6 +1,6 @@
 {
   "name": "vart-cli",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "vart - cli anti-alteration tool for text-based everything.",
   "main": "crypto-helper.js",
   "bin": {
@@ -27,4 +27,5 @@
     "node": ">=16"
   },
   "dependencies": {}
+
 }
