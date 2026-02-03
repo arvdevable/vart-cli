@@ -21,6 +21,8 @@ function loadOrCreateMasterSecretSync() {
   const defaultPath = path.join(os.homedir(), '.vart_master_secret');
   const secretFile = process.env.MASTER_SECRET_FILE || defaultPath;
 
+  const version = "v. 1.1.0"
+
   try {
     const content = fsSync.readFileSync(secretFile, 'utf8').trim();
     if (content && /^[0-9a-fA-F]{64}$/.test(content)) {
@@ -79,7 +81,7 @@ async function writeVartFile(filename, type, data, publicMeta = {}) {
   const vartContent = {
     type: type,
     data: data,
-    version: "1.0",
+    version: version,
     public: publicMeta
   };
   const content = JSON.stringify(vartContent, null, 2);
@@ -545,14 +547,14 @@ async function initAuthority() {
     await fs.writeFile(pubKeyFile, publicKey, { mode: 0o644 }); // Public can be readable
     await fs.writeFile(privKeyFile, privateKey, { mode: 0o600 }); // Private is restricted
     
-    console.log('\n✅ Authority keys generated and saved:');
+    console.log('\n Authority keys generated and saved:');
     console.log(`   Public:  ${pubKeyFile}`);
     console.log(`   Private: ${privKeyFile}`);
-    console.log('\n📌 Important:');
+    console.log('\n Important:');
     console.log('   - Keep the private key safe!');
     console.log('   - Add to .gitignore: .vart/');
     console.log('   - Backup both keys securely');
-    console.log('\n💡 To use these keys automatically, vart will load them from ~/.vart/');
+    console.log('\n To use these keys automatically, vart will load them from ~/.vart/');
     console.log('   Or set environment variables:');
     console.log(`   export AUTHORITY_PUBLIC_KEY_PEM="$(cat ${pubKeyFile})"`);
     console.log(`   export AUTHORITY_PRIVATE_KEY_PEM="$(cat ${privKeyFile})"`);
@@ -887,7 +889,7 @@ if (require.main === module) {
     } else if (command === 'status') {
     await status();
 }else {
-        console.log('Vart - Verification Article Tool v1.0.0\n');
+        console.log('Vart - Verification Article Tool ${version}\n');
         console.log('Usage:');
         console.log('  vart reg [--name NAME] [--email EMAIL] [--verify URL]  Register identity (optionally provide verification URL(s))');
         console.log('  vart verify <file.vart>                                Verify identity (requires MASTER_SECRET to decrypt)');
@@ -898,6 +900,7 @@ if (require.main === module) {
         console.log('  vart export <article.vart> [output.txt]                Export article content');
         console.log('  vart trust <key.vart>                                  Check trust verification');
         console.log('  vart join <writer.vart> <org.vart>                     Join organization');
+        console.log('  vart inf                                               Additional information about Vart');
         console.log('\nEnvironment:');
         console.log('  MASTER_SECRET_HEX        - Preferred (64-char hex string)');
         console.log('  or MASTER_SECRET_FILE    - Path to persisted secret file (default: ~/.vart_master_secret)');
@@ -913,4 +916,5 @@ if (require.main === module) {
 
 module.exports = {
   encrypt, decrypt, register, verifyKey, signArticle, verifyArticle, verifyPublic, joinOrganization, checkTrust, exportArticle, info
+
 };
