@@ -56,6 +56,7 @@ vart sign article.txt alice.vart
 4. public verification (anyone, no master secret required):
 ```bash
 vart verify-public alice.vart
+vart verify-public article.vart article.txt
 ```
 
 5. full verification (requires master secret to decrypt identity details):
@@ -118,6 +119,8 @@ a `.vart` file is a json wrapper:
     "authorityPublicKey": "<pem or null>",
     "fingerprint": "<sha256-hex>",
     "authoritySignature": "<base64 or null>",
+    "contentFingerprint": "<sha256-hex-or-null>",
+    "contentSignature": "<base64-or-null>",
     "signedAt": "<timestamp>"
   }
 }
@@ -126,6 +129,7 @@ a `.vart` file is a json wrapper:
 - `data` is the ciphertext (aes-256-gcm hex format).
 - `public.fingerprint` is the canonical sha256 fingerprint of the canonicalized identity (stable key ordering).
 - `authoritySignature` is present only if the identity was signed by the authority private key.
+- `contentFingerprint` / `contentSignature` apply to `signed_article` files and allow public verification against the plaintext article when provided.
 
 ---
 

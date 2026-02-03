@@ -52,35 +52,6 @@ function loadOrCreateMasterSecretSync() {
 const MASTER_SECRET_HEX = loadOrCreateMasterSecretSync();
 const MASTER_SECRET = Buffer.from(MASTER_SECRET_HEX, 'hex');
 
-// Authority keys handling
-function loadAuthorityPublicKey() {
-  const pubEnv = process.env.AUTHORITY_PUBLIC_KEY_PEM;
-  const privEnv = process.env.AUTHORITY_PRIVATE_KEY_PEM;
-
-  if (pubEnv && pubEnv.trim()) {
-    return pubEnv.trim();
-  }
-
-  if (privEnv && privEnv.trim()) {
-    try {
-      const privKeyObj = crypto.createPrivateKey({ key: privEnv.trim(), format: 'pem', type: 'pkcs8' });
-      const derivedPub = privKeyObj.export({ type: 'spki', format: 'pem' });
-      return derivedPub;
-    } catch (e) {
-      console.warn('Failed to derive authority public key from provided private key:', e.message);
-      return null;
-    }
-  }
-
-  return null;
-}
-
-
-// Update the global variables
-const AUTHORITY_PUBLIC_KEY_PEM = loadAuthorityPublicKey();
-const AUTHORITY_PRIVATE_KEY_PEM = loadAuthorityPrivateKey();
-const AUTHORITY_NAME = process.env.AUTHORITY_NAME || 'VART-Authority';
-
 // -------------------------
 // Helpers
 // -------------------------
@@ -248,9 +219,8 @@ async function register(name, options = {}) {
   let authoritySignature = null;
   if (AUTHORITY_PRIVATE_KEY_PEM) {
     try {
-      const sign = crypto.createSign('SHA256');
-      sign.update(fingerprint);
-      authoritySignature = sign.sign(AUTHORITY_PRIVATE_KEY_PEM, 'base64');
+      const signature = crypto.sign(null, Buffer.from(fingerprint, 'utf8'), AUTHORITY_PRIVATE_KEY_PEM);
+      authoritySignature = signature.toString('base64');
     } catch (e) {
       console.warn('Failed to sign fingerprint with AUTHORITY_PRIVATE_KEY_PEM:', e.message);
       authoritySignature = null;
@@ -327,8 +297,24 @@ async function signArticle(articlePath, keyInput) {
   const publicMeta = {
     authority: AUTHORITY_NAME,
     authorityPublicKey: AUTHORITY_PUBLIC_KEY_PEM || null,
+    contentFingerprint: crypto.createHash('sha256').update(normalized).digest('hex'),
+    contentSignature: null,
     signedAt: new Date().toISOString()
   };
+
+  if (AUTHORITY_PRIVATE_KEY_PEM) {
+    try {
+      const signature = crypto.sign(
+        null,
+        Buffer.from(publicMeta.contentFingerprint, 'utf8'),
+        AUTHORITY_PRIVATE_KEY_PEM
+      );
+      publicMeta.contentSignature = signature.toString('base64');
+    } catch (e) {
+      console.warn('Failed to sign content fingerprint with AUTHORITY_PRIVATE_KEY_PEM:', e.message);
+      publicMeta.contentSignature = null;
+    }
+  }
 
   await writeVartFile(outputPath, 'signed_article', signedArticle, publicMeta);
 
@@ -391,10 +377,59 @@ async function verifyArticle(vartPath) {
   }
 }
 
-async function verifyPublic(filePath) {
+async function verifyPublic(filePath, articlePath) {
   try {
     const raw = await readVartFile(filePath);
     const pub = raw.public || {};
+    if (raw.type === 'signed_article') {
+      if (!pub.contentFingerprint) {
+        console.log('❌ No public content fingerprint present in this .vart file.');
+        return false;
+      }
+      if (!pub.contentSignature) {
+        console.log('❌ No authority signature present for the content fingerprint.');
+        return false;
+      }
+      if (!pub.authorityPublicKey && !AUTHORITY_PUBLIC_KEY_PEM) {
+        console.log('❌ No authority public key available to verify signature.');
+        return false;
+      }
+
+      if (!articlePath) {
+        console.log('❌ Provide the original article text to verify public content.');
+        console.log('Usage: vart verify-public <file.vart> [article.txt]');
+        return false;
+      }
+
+      const articleText = await fs.readFile(articlePath, 'utf8');
+      const normalized = normalizeForHashing(articleText);
+      const contentFingerprint = crypto.createHash('sha256').update(normalized).digest('hex');
+
+      if (contentFingerprint !== pub.contentFingerprint) {
+        console.log('❌ INVALID: Content hash mismatch.');
+        return false;
+      }
+
+      const authorityPub = pub.authorityPublicKey || AUTHORITY_PUBLIC_KEY_PEM;
+      const ok = crypto.verify(
+        null,
+        Buffer.from(pub.contentFingerprint, 'utf8'),
+        authorityPub,
+        Buffer.from(pub.contentSignature, 'base64')
+      );
+
+      console.log('\n--- Public Article Verification ---');
+      console.log(`File: ${filePath}`);
+      if (ok) {
+        console.log('✅ VERIFIED content signature by authority');
+        console.log(`Authority: ${pub.authority || 'Unknown'}`);
+        console.log(`Fingerprint: ${pub.contentFingerprint.slice(0, 32)}...`);
+        return true;
+      }
+
+      console.log('❌ INVALID authority signature — file may be forged or tampered with.');
+      return false;
+    }
     if (!pub.fingerprint) {
       console.log('❌ No public fingerprint present in this .vart file.');
       return false;
@@ -410,9 +445,12 @@ async function verifyPublic(filePath) {
 
     const authorityPub = pub.authorityPublicKey || AUTHORITY_PUBLIC_KEY_PEM;
 
-    const verify = crypto.createVerify('SHA256');
-    verify.update(pub.fingerprint);
-    const ok = verify.verify(authorityPub, pub.authoritySignature, 'base64');
+    const ok = crypto.verify(
+      null,
+      Buffer.from(pub.fingerprint, 'utf8'),
+      authorityPub,
+      Buffer.from(pub.authoritySignature, 'base64')
+    );
 
     console.log('\n--- Public Verification ---');
     console.log(`File: ${filePath}`);
@@ -583,6 +621,11 @@ function loadAuthorityPrivateKey() {
 
   return null;
 }
+
+// Update the global variables
+const AUTHORITY_PUBLIC_KEY_PEM = loadAuthorityPublicKey();
+const AUTHORITY_PRIVATE_KEY_PEM = loadAuthorityPrivateKey();
+const AUTHORITY_NAME = process.env.AUTHORITY_NAME || 'VART-Authority';
 
 
 async function checkTrust(filePath) {
@@ -801,8 +844,9 @@ if (require.main === module) {
 
       } else if (command === 'verify-public') {
         const file = args[1];
-        if (!file) throw new Error('Usage: verify-public <file.vart>');
-        await verifyPublic(file);
+        const articlePath = args[2];
+        if (!file) throw new Error('Usage: verify-public <file.vart> [article.txt]');
+        await verifyPublic(file, articlePath);
 
       } else if (command === 'sign') {
         const filePath = args[1];
@@ -847,7 +891,7 @@ if (require.main === module) {
         console.log('Usage:');
         console.log('  vart reg [--name NAME] [--email EMAIL] [--verify URL]  Register identity (optionally provide verification URL(s))');
         console.log('  vart verify <file.vart>                                Verify identity (requires MASTER_SECRET to decrypt)');
-        console.log('  vart verify-public <file.vart>                         Public verification (authority signature only)');
+        console.log('  vart verify-public <file.vart> [article.txt]           Public verification (authority signature only)');
         console.log('  vart info <file.vart>                                  Show file info');
         console.log('  vart sign <article.txt> <key.vart>                     Sign article');
         console.log('  vart verify-article <article.vart>                     Verify signed article');
